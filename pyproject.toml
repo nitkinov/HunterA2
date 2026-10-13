@@ -1,0 +1,26 @@
+[project]
+name = "huntera2"
+version = "0.1.0"
+description = "HunterA 2 — pentest multitool for Termux (no root)"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.50",
+    "textual-plotext>=0.3",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "dnspython>=2.6",
+    "python-whois>=0.9",
+    "beautifulsoup4>=4.12",
+    "cryptography>=42.0",
+    "lxml>=5.0",
+]
+
+[project.scripts]
+huntera2 = "huntera2.tui.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/huntera2"]
