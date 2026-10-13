@@ -3,16 +3,24 @@ import socket
 import ssl
 from datetime import datetime, timezone
 from huntera2.sdk import Plugin
+from huntera2.core import severity
 
-try:
-    from cryptography import x509
-    from cryptography.hazmat.primitives.asymmetric import rsa, ec, dsa
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.x509.oid import ExtensionOID, NameOID
-    from cryptography.hazmat.backends import default_backend
-    CRYPTO_AVAILABLE = True
-except ImportError:
-    CRYPTO_AVAILABLE = False
+CRYPTO_AVAILABLE = None
+_CRYPTO_MODS = {}
+
+
+def _ensure_crypto():
+    global CRYPTO_AVAILABLE, _CRYPTO_MODS
+    if CRYPTO_AVAILABLE is None:
+        try:
+            from cryptography import x509
+            from cryptography.hazmat.primitives.asymmetric import rsa, ec, dsa
+            from cryptography.hazmat.primitives import hashes
+            _CRYPTO_MODS = {"x509": x509, "rsa": rsa, "ec": ec, "dsa": dsa, "hashes": hashes}
+            CRYPTO_AVAILABLE = True
+        except ImportError:
+            CRYPTO_AVAILABLE = False
+    return CRYPTO_AVAILABLE
 
 DEFAULT_TIMEOUT = 10.0
 
@@ -71,6 +79,8 @@ def _get_cert_chain(host: str, port: int, timeout: float) -> dict:
 
 def _parse_cert(der: bytes) -> dict:
     """Разбирает DER-сертификат через cryptography."""
+    _ensure_crypto()
+    x509 = _CRYPTO_MODS["x509"]
     cert = x509.load_der_x509_certificate(der)
 
     def _get_utc(dt):
@@ -245,11 +255,12 @@ class SslAudit(Plugin):
     description = "SSL/TLS audit: cert chain, ciphers, PFS, HSTS, vulnerabilities, OCSP, grade"
     usage = "host=example.com [port=443] [timeout=10] [json=1]"
     icon = "🔒"
+    cache_ttl = 3600
     category = "TLS"
     needs_network = True
 
     def run(self, args: dict) -> str:
-        if not CRYPTO_AVAILABLE:
+        if not _ensure_crypto():
             return "[#e63946]cryptography not installed.[/#e63946] Run: pip install cryptography"
 
         host = args.get("host")
@@ -339,7 +350,7 @@ class SslAudit(Plugin):
 
         lines = []
         lines.append(f"[b]Host:[/b]         {host}:{port}")
-        lines.append(f"[b]Grade:[/b]        [{grade_color}]{grade}[/{grade_color}]  [#555555]({score}/100)[/#555555]")
+        lines.append(f"[b]Grade:[/b]        {severity.grade(score)}  [#555555]({score}/100)[/#555555]")
         lines.append(f"[b]TLS version:[/b]  {info['tls_version']}")
         cipher_name, cipher_proto, cipher_bits = info["cipher"]
         lines.append(f"[b]Cipher:[/b]       {cipher_name}  [#555555]({cipher_bits} bits)[/#555555]")
@@ -396,8 +407,8 @@ class SslAudit(Plugin):
         if vulns:
             lines.append("[b #e63946]◆ Vulnerabilities:[/b #e63946]")
             for v in vulns:
-                color = "#e63946" if v["severity"] == "High" else "#e6b800"
-                lines.append(f"  [{color}]✗ {v['name']}[/{color}]  [#555555]({v['severity']})[/#555555]")
+                lvl = v["severity"].lower()
+                lines.append(f"  {severity.tag(lvl)}  [b]{v['name']}[/b]")
                 lines.append(f"    [#555555]{v['desc']}[/#555555]")
             lines.append("")
         else:

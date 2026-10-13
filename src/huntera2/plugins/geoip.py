@@ -134,6 +134,7 @@ class GeoIp(Plugin):
     description = "IP geolocation: country, city, ISP, ASN, CDN, Tor, security flags, fallback API"
     usage = "query=8.8.8.8 | query=example.com [json=1]"
     icon = "🌍"
+    cache_ttl = 86400
     category = "Recon"
     needs_network = True
 

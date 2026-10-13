@@ -36,6 +36,9 @@ BANNER_PATTERNS = [
     (re.compile(r"HTTP/1\.[01] (\d{3})"), "HTTP"),
 ]
 
+_GLOBAL_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+
 SCAN_PROFILES = {
     "stealth": {"concurrency": 10, "timeout": 5.0, "delay": 1.0, "jitter": 0.5, "grab": False},
     "aggressive": {"concurrency": 500, "timeout": 1.0, "delay": 0.0, "jitter": 0.0, "grab": True},
@@ -178,6 +181,7 @@ async def _scan_stream(host: str, ports: list[int], concurrency: int, timeout: f
 
 
 def _run_stream_in_thread(host, ports, concurrency, timeout, grab, delay, jitter, emit):
+    """Переиспользует глобальный executor вместо создания нового."""
     def _worker():
         loop = asyncio.new_event_loop()
         try:
@@ -186,8 +190,7 @@ def _run_stream_in_thread(host, ports, concurrency, timeout, grab, delay, jitter
             )
         finally:
             loop.close()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-        return ex.submit(_worker).result()
+    return _GLOBAL_EXECUTOR.submit(_worker).result()
 
 
 class PortScan(Plugin):

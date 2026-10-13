@@ -35,6 +35,7 @@ class DnsLookup(Plugin):
     description = "DNS lookup: A/AAAA/MX/NS/TXT/CNAME/SOA/PTR/SRV/CAA, reverse, custom resolver"
     usage = "host=example.com [types=A,MX,NS] [server=8.8.8.8] [reverse=1] [all=1] [json=1]"
     icon = "🛰"
+    cache_ttl = 3600
     category = "Recon"
     needs_network = True
 

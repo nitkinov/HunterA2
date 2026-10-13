@@ -16,6 +16,7 @@ except ImportError:
     PLOTEXT_AVAILABLE = False
 
 from huntera2 import __version__
+from huntera2.core import cache
 from huntera2.core.config import load_config
 from huntera2.core.plugin_loader import load_all
 
@@ -42,7 +43,7 @@ def parse_args(raw: str) -> dict:
 
 class HunterApp(App):
     CSS = """
-    Screen { background: #141414; color: #d4d4d4; }
+    Screen { background: #0d0d0d; color: #d4d4d4; }
 
     #banner {
         height: 3; padding: 0;
@@ -55,8 +56,8 @@ class HunterApp(App):
     #body { height: 1fr; }
 
     #sidebar {
-        width: 30; background: #1a1a1a;
-        border: heavy #8b0000;
+        width: 30; background: #161616;
+        border-right: heavy #8b0000;
         padding: 0 1;
     }
 
@@ -66,18 +67,19 @@ class HunterApp(App):
     }
 
     #category-bar {
-        height: 1;
-        color: #555555;
+        height: 1; color: #555555;
         padding: 0 1;
     }
 
     #plugin-list { background: transparent; height: 1fr; }
 
-    ListItem { background: transparent; padding: 0 1; }
-    ListItem.--highlight { background: #8b0000; }
-    ListView > ListItem > Label { color: #d4d4d4; }
-    ListView > ListItem.--highlight > Label {
-        color: #ffffff; text-style: bold;
+    ListItem { 
+        background: transparent; 
+        padding: 0 1; 
+    }
+    ListView > ListItem > Label { 
+        background: transparent;
+        width: 100%;
     }
 
     .category-header {
@@ -91,11 +93,13 @@ class HunterApp(App):
         color: #e63946;
     }
 
-    #main { padding: 0 1; background: #141414; }
+    #main { padding: 0 1; background: #0d0d0d; }
 
     #plugin-title {
         text-style: bold; color: #e63946;
-        padding: 0 1; height: 1;
+        padding: 0 1 1 1;
+        height: 2;
+        border-bottom: solid #4a0d0d;
     }
 
     #plugin-desc { color: #b0b0b0; padding: 0 1; height: 1; }
@@ -117,30 +121,31 @@ class HunterApp(App):
     #run:hover { background: #e63946; }
 
     #output {
-        background: #0f0f0f;
-        border: heavy #4a0d0d;
-        padding: 0 1;
+        background: #0a0a0a;
+        border: round #4a0d0d;
+        padding: 0 2;
         scrollbar-size-vertical: 1;
         scrollbar-color: #8b0000;
         scrollbar-background: #1c1c1c;
     }
-    #output:focus { border: heavy #e63946; }
-    RichLog { padding: 0 1; }
+    #output:focus { border: round #e63946; }
 
     #chart {
-        height: 20;
-        background: #0f0f0f;
-        border: heavy #8b0000;
+        height: 18;
+        background: #0a0a0a;
+        border: round #4a0d0d;
         padding: 0 1;
+        margin-top: 1;
         display: none;
     }
 
     #status {
-        height: 1; background: #1c1c1c;
+        height: 1; background: #161616;
         color: #8a8a8a; padding: 0 2;
+        text-style: bold;
     }
 
-    Footer { background: #1c1c1c; }
+    Footer { background: #161616; }
     """
 
     BINDINGS = [
@@ -151,24 +156,28 @@ class HunterApp(App):
         Binding("escape", "cancel_worker", "Cancel", show=False),
         Binding("tab", "focus_next", "Focus", show=False),
         Binding("shift+tab", "focus_previous", "Focus back", show=False),
-        Binding("pageup", "log_up", "Log ↑", show=False),
-        Binding("pagedown", "log_down", "Log ↓", show=False),
+        Binding("pageup", "log_up", "Log up", show=False),
+        Binding("pagedown", "log_down", "Log down", show=False),
         Binding("1", "filter('all')", "All", show=False),
         Binding("2", "filter('Recon')", "Recon", show=False),
         Binding("3", "filter('Web')", "Web", show=False),
         Binding("4", "filter('Network')", "Network", show=False),
         Binding("5", "filter('TLS')", "TLS", show=False),
         Binding("6", "filter('Utils')", "Utils", show=False),
+        Binding("X", "clear_cache", "Clear cache", show=False),
         Binding("ctrl+p", "command_palette", "Palette", show=False),
     ]
+
+    MAX_BUFFER_LINES = 5000
 
     def __init__(self) -> None:
         super().__init__()
         self.plugins = load_all()
+        self.plugins_by_name = {p.name: p for p in self.plugins}
         self.config = load_config()
         self.current_plugin = None
         self._stream_buffer = ""
-        self._worker: Worker | None = None
+        self._worker = None
         self._chart_visible = False
         self._filter = "all"
 
@@ -233,29 +242,51 @@ class HunterApp(App):
         else:
             plugins = [p for p in self.plugins if p.category == self._filter]
 
-        by_cat: dict[str, list] = {}
+        by_cat: dict = {}
         for p in plugins:
             by_cat.setdefault(p.category, []).append(p)
 
         ordered_cats = [c for c in CATEGORY_ORDER if c in by_cat]
         for cat in ordered_cats:
+            count = len(by_cat[cat])
             header = ListItem(
-                Label(f"{CATEGORY_ICONS.get(cat, '◆')} {cat}"),
+                Label(f"{CATEGORY_ICONS.get(cat, '◆')} {cat}  [#555555]({count})[/#555555]"),
                 id=f"cat-{cat}",
                 disabled=True,
             )
             header.add_class("category-header")
             lv.append(header)
             for p in sorted(by_cat[cat], key=lambda x: x.name):
-                lv.append(ListItem(Label(f" {p.icon}  {p.name}"), id=f"plugin-{p.name}"))
+                lbl = Label(f" {p.icon}  {p.name}")
+                lbl.styles.color = "#b0b0b0"
+                lv.append(ListItem(lbl, id=f"plugin-{p.name}"))
 
-        # Фокус на первый плагин
         for i, item in enumerate(lv.children):
             if item.id and item.id.startswith("plugin-"):
                 lv.index = i
                 break
         lv.focus()
         self.query_one("#category-bar", Static).update(self._category_bar_text())
+        # Подсветить первый после рендера
+        self.call_after_refresh(self._apply_highlight, lv.index)
+
+    def _apply_highlight(self, selected_idx: int) -> None:
+        """Красит текст выбранного Label в кровавый через styles.color."""
+        lv = self.query_one("#plugin-list", ListView)
+        for i, item in enumerate(lv.children):
+            if not item.id or not item.id.startswith("plugin-"):
+                continue
+            try:
+                label = item.query_one(Label)
+            except Exception:
+                continue
+            if i == selected_idx:
+                label.styles.color = "#ff2a2a"
+                label.styles.text_style = "bold"
+            else:
+                label.styles.color = "#b0b0b0"
+                label.styles.text_style = "none"
+
 
     def _get_plugin_at(self, idx):
         lv = self.query_one("#plugin-list", ListView)
@@ -265,10 +296,7 @@ class HunterApp(App):
         if not item.id or not item.id.startswith("plugin-"):
             return None
         name = item.id[len("plugin-"):]
-        for p in self.plugins:
-            if p.name == name:
-                return p
-        return None
+        return self.plugins_by_name.get(name)
 
     @staticmethod
     def _escape_markup(text: str) -> str:
@@ -291,7 +319,9 @@ class HunterApp(App):
 
     # ---------- Events ----------
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
-        plugin = self._get_plugin_at(event.list_view.index)
+        idx = event.list_view.index
+        self._apply_highlight(idx)
+        plugin = self._get_plugin_at(idx)
         if plugin is None:
             return
         self._apply_plugin(plugin)
@@ -313,7 +343,7 @@ class HunterApp(App):
 
         args = parse_args(self.query_one("#args", Input).value.strip())
         plugin = self.current_plugin
-        self._status(f"⏳ running: {plugin.name}", "#e6b800")
+        self._status(f"running: {plugin.name}", "#e6b800")
 
         self._worker = self.run_worker(
             self._execute_plugin(plugin, args),
@@ -325,39 +355,58 @@ class HunterApp(App):
         worker = get_current_worker()
 
         def emit(chunk: str) -> None:
-            # emit вызывается из отдельного потока (внутри asyncio.to_thread),
-            # поэтому здесь действительно нужен call_from_thread
             if worker.is_cancelled:
                 return
             self.call_from_thread(self._flush_stream, chunk)
 
         try:
+            no_cache = args.get("no-cache") in ("1", "true", "yes")
+            ttl = getattr(plugin, "cache_ttl", 0)
+            use_cache = (not plugin.supports_stream) and ttl > 0 and not no_cache
+
+            if use_cache:
+                cached = cache.get(plugin.name, args)
+                if cached is not None:
+                    self._flush_stream(
+                        f"[#555555]cached (ttl {cache.human_ttl(ttl)})[/#555555]"
+                    )
+                    self._flush_stream(cached)
+                    self._status("done (cached)", "#7fb069")
+                    return
+
             if plugin.supports_stream:
                 await asyncio.to_thread(plugin.run_stream, args, emit)
             else:
                 result = await asyncio.to_thread(plugin.run, args)
-                # Мы уже вернулись на главный event loop — прямой вызов
                 self._flush_stream(result)
+                if use_cache and result:
+                    cache.set(plugin.name, args, result, ttl)
 
-            self._status("✓ done", "#7fb069")
+            self._status("done", "#7fb069")
 
             if plugin.name == "portscan" and PLOTEXT_AVAILABLE:
                 results = getattr(plugin, "_last_results", None)
                 if results:
                     self._show_chart(results)
         except Exception as e:
-            # Мы уже на главном loop — прямой вызов, БЕЗ call_from_thread
-            self._flush_stream(f"\n[#e63946]✗ Error: {e}[/#e63946]")
-            self._status(f"✗ error: {e}", "#e63946")
+            self._flush_stream(f"[#e63946]Error: {e}[/#e63946]")
+            self._status(f"error: {e}", "#e63946")
 
     def _flush_stream(self, chunk: str) -> None:
+        if not chunk:
+            return
+        self._stream_buffer += chunk
+        if self._stream_buffer.count("\n") > self.MAX_BUFFER_LINES:
+            lines = self._stream_buffer.split("\n")
+            self._stream_buffer = "\n".join(lines[-self.MAX_BUFFER_LINES:])
+            self.query_one("#output", RichLog).clear()
         self.query_one("#output", RichLog).write(chunk)
 
     # ---------- Chart ----------
     def _show_chart(self, results_by_host: list) -> None:
         if not PLOTEXT_AVAILABLE:
             return
-        services: dict[str, int] = {}
+        services: dict = {}
         for _, results in results_by_host:
             for r in results:
                 svc = r.get("service", "unknown").split(" ")[0]
@@ -376,7 +425,7 @@ class HunterApp(App):
         plt.title("Open Ports by Service")
         chart.styles.display = "block"
         self._chart_visible = True
-        self._status(f"📊 chart: {len(services)} services", "#7fb069")
+        self._status(f"chart: {len(services)} services", "#7fb069")
 
     def _hide_chart(self) -> None:
         if not PLOTEXT_AVAILABLE:
@@ -411,7 +460,7 @@ class HunterApp(App):
     def action_cancel_worker(self) -> None:
         if self._worker and not self._worker.is_finished:
             self._worker.cancel()
-            self._status("✗ cancelled", "#e63946")
+            self._status("cancelled", "#e63946")
 
     def action_log_up(self) -> None:
         self.query_one("#output", RichLog).scroll_page_up(animate=False)
@@ -423,6 +472,10 @@ class HunterApp(App):
         self._filter = cat
         self._rebuild_plugin_list()
         self._status(f"filter: {cat}", "#7fb069")
+
+    def action_clear_cache(self) -> None:
+        count = cache.clear()
+        self._status(f"cache cleared ({count} files)", "#7fb069")
 
 
 def main() -> None:

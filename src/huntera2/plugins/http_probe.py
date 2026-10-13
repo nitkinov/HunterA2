@@ -2,6 +2,7 @@ import json
 import re
 import httpx
 from huntera2.sdk import Plugin
+from huntera2.core import severity
 
 # --- Security Header Rules (OWASP-based) ---
 SECURITY_RULES = {
@@ -149,6 +150,7 @@ class HttpProbe(Plugin):
     description = "Probe a URL: headers, security audit, CORS, cookies, fingerprint"
     usage = "url=https://example.com [full=1] [audit=1] [json=1]"
     icon = "🌐"
+    cache_ttl = 600
     category = "Web"
     needs_network = True
 
@@ -220,7 +222,7 @@ class HttpProbe(Plugin):
         lines = []
         lines.append(f"[b]URL:[/b]    {r.url}")
         lines.append(f"[b]Status:[/b] {_color_status(r.status_code)} {r.reason_phrase}")
-        lines.append(f"[b]Score:[/b]  {score}/100  Grade: {grade}")
+        lines.append(f"[b]Score:[/b]  {score}/100  {severity.grade(score)}")
         lines.append("")
 
         # Technologies
@@ -232,9 +234,10 @@ class HttpProbe(Plugin):
         if issues:
             lines.append("[b #e63946]⚠ Missing / Weak Headers:[/b #e63946]")
             for h, rule in issues:
-                lines.append(f"  [#e63946]✗[/#e63946] {h}  [#e6b800]({rule['risk']})[/#e6b800]")
+                lvl = rule["risk"].lower()
+                lines.append(f"  {severity.tag(lvl)} [b]{h}[/b]")
                 lines.append(f"    [#555555]→ {rule['recommendation']}[/#555555]")
-                lines.append(f"    [#555555]⚔ Attack: {rule['attack']}[/#555555]")
+                lines.append(f"    [#555555]⚔ {rule['attack']}[/#555555]")
             lines.append("")
 
         # Present headers

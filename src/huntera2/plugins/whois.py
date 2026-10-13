@@ -1,7 +1,16 @@
 import json
-import whois
+whois = None
+
+
+def _ensure_whois():
+    global whois
+    if whois is None:
+        import whois as _w
+        whois = _w
+    return whois
 from datetime import datetime, timezone
 from huntera2.sdk import Plugin
+from huntera2.core import severity
 
 
 EPP_STATUS_INFO = {
@@ -81,6 +90,7 @@ def _whois_with_fallback(domain: str):
     """Пробует python-whois, при провале — RDAP. Возвращает (source, data)."""
     # 1. python-whois
     try:
+        _ensure_whois()
         w = whois.whois(domain)
         if w and w.domain_name:
             return "whois", w
@@ -158,6 +168,7 @@ class WhoisLookup(Plugin):
     description = "WHOIS lookup: registrar, dates, EPP status, DNSSEC, contacts"
     usage = "domain=example.com [raw=1] [json=1]"
     icon = "🔍"
+    cache_ttl = 86400
     category = "Recon"
     needs_network = True
 
@@ -209,8 +220,10 @@ class WhoisLookup(Plugin):
             desc, level = EPP_STATUS_INFO.get(s_clean, ("Unknown status", "info"))
             if level == "critical":
                 has_hold = True
-            color = _risk_color(level)
-            status_lines.append(f"  [{color}]●[/{color}] [#8a8a8a]{s_clean}[/#8a8a8a]  [{color}]{desc}[/{color}]")
+            status_lines.append(
+                f"  {severity.tag(level)}  [#8a8a8a]{s_clean}[/#8a8a8a]"
+            )
+            status_lines.append(f"    [#555555]{desc}[/#555555]")
 
         # --- DNSSEC ---
         dnssec = getattr(w, "dnssec", None)

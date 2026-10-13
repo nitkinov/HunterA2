@@ -7,9 +7,10 @@ class Plugin:
     description: str = ""
     usage: str = ""
     icon: str = "◆"
-    category: str = "Other"     # группа в TUI
+    category: str = "Other"
     needs_network: bool = False
     supports_stream: bool = False
+    cache_ttl: int = 0  # секунд; 0 = кэш отключён
 
     def run(self, args: dict) -> str:
         raise NotImplementedError

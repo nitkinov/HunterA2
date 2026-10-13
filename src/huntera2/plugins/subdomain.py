@@ -52,18 +52,24 @@ def _random_label(length: int = 12) -> str:
     return "".join(random.choices(string.ascii_lowercase, k=length))
 
 
-def _build_resolver(timeout: float) -> "dns.resolver.Resolver":
-    resolver = dns.resolver.Resolver(configure=False)
-    resolver.nameservers = list(DNS_RESOLVERS)
-    resolver.timeout = timeout
-    resolver.lifetime = timeout * 2
-    return resolver
+_global_resolver = None
+
+
+def _get_resolver(timeout: float) -> "dns.resolver.Resolver":
+    """Один Resolver на все запросы — не создаём новый каждый раз."""
+    global _global_resolver
+    if _global_resolver is None:
+        _global_resolver = dns.resolver.Resolver(configure=False)
+        _global_resolver.nameservers = list(DNS_RESOLVERS)
+        _global_resolver.timeout = timeout
+        _global_resolver.lifetime = timeout * 2
+    return _global_resolver
 
 
 def _resolve_sync(fqdn: str, timeout: float, record_type: str = "A") -> tuple[list[str], str]:
     """Возвращает (список IP, CNAME-цель). Если ничего не найдено — ([], '')."""
     try:
-        resolver = _build_resolver(timeout)
+        resolver = _get_resolver(timeout)
         answers = resolver.resolve(fqdn, record_type)
         ips = sorted({str(r) for r in answers}) if record_type == "A" else []
         cname = ""
@@ -186,6 +192,7 @@ class SubdomainEnum(Plugin):
     description = "Subdomain enumeration: DNS brute-force + crt.sh, wildcard detection, CNAME"
     usage = "domain=example.com [wordlist=/path] [concurrency=100] [timeout=3.0] [passive=0] [json=1]"
     icon = "🔎"
+    cache_ttl = 3600
     category = "Recon"
     needs_network = True
 

@@ -11,12 +11,21 @@ from urllib.parse import urljoin, urlparse
 
 from huntera2.sdk import Plugin
 
-try:
-    import httpx
-    from bs4 import BeautifulSoup
-    DEPS_AVAILABLE = True
-except ImportError:
-    DEPS_AVAILABLE = False
+DEPS_AVAILABLE = None
+_BS4 = None
+
+
+def _ensure_bs4():
+    global DEPS_AVAILABLE, _BS4
+    if DEPS_AVAILABLE is None:
+        try:
+            import httpx  # noqa: F401
+            from bs4 import BeautifulSoup
+            _BS4 = BeautifulSoup
+            DEPS_AVAILABLE = True
+        except ImportError:
+            DEPS_AVAILABLE = False
+    return DEPS_AVAILABLE
 
 # --- Regex ---
 EMAIL_REGEX = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
@@ -173,7 +182,7 @@ def _detect_language(soup, headers: dict) -> str:
 
 
 def _parse_page(url: str, html: str, headers: dict):
-    soup = BeautifulSoup(html, "html.parser")
+    soup = _BS4(html, "html.parser")
 
     # Ссылки
     links = set()
@@ -446,7 +455,7 @@ class Crawl(Plugin):
     needs_network = True
 
     def run(self, args: dict) -> str:
-        if not DEPS_AVAILABLE:
+        if not _ensure_bs4():
             return "[#e63946]Нужны библиотеки.[/#e63946] Установи: pip install httpx beautifulsoup4 lxml"
 
         url = args.get("url")
