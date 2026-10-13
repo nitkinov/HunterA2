@@ -36,14 +36,23 @@ HunterA 2 — переписанный с нуля мультитул для п�
 
 ## Установка
 
-```bash
-# 1. Клонировать
-git clone https://github.com/heyscally/huntera2.git
-cd huntera2
+### Требования
 
-# 2. Установить (всё автоматически)
+- Android с установленным [Termux](https://f-droid.org/en/packages/com.termux/) (из F-Droid, не из Google Play!)
+- ~500 МБ свободного места
+- Интернет
+
+### Шаги
+
+```bash
+# 1. Клонировать репозиторий
+git clone https://github.com/nitkinov/HunterA2.git
+
+# 2. Перейти в директорию
+cd HunterA2
+
+# 3. Запустить автоматический установщик
 bash install.sh
 
-# 3. Запустить
+# 4. Запустить HunterA 2
 huntera2
-
