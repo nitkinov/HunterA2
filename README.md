@@ -29,6 +29,7 @@ HunterA 2 — переписанный с нуля мультитул для п�
 | 🌍 `geoip` | Recon | Геолокация: страна, ISP, ASN, Tor, CDN |
 | ☁ `cloudflair` | Recon | Поиск origin-IP за Cloudflare: CT-логи, DNS, MX/SPF, favicon |
 | 🛡 `waf_detect` | Recon | Детект и фингерпринт WAF: заголовки, cookies, тело, активные пробы |
+| 🤖 `robots` | Recon | Анализ robots.txt/sitemap.xml: скрытые пути, live-check, security.txt |
 | 🌐 `http_probe` | Web | Аудит HTTP: security-заголовки, CORS, cookie, оценка A+–F |
 | 📂 `dir_brute` | Web | Перебор директорий и файлов |
 | 🕷 `crawl` | Web | Веб-краулер: sitemap, JSON-LD, WAF, формы, email |
@@ -36,7 +37,7 @@ HunterA 2 — переписанный с нуля мультитул для п�
 | 🔒 `ssl` | TLS | Аудит SSL/TLS: цепочка, шифры, HSTS, уязвимости |
 | 🔐 `hash` | Utils | Хеши, Base64, URL, Hex, HMAC, PBKDF2, JWT, identify |
 
-**13 плагинов** в 5 категориях (Recon, Web, Network, TLS, Utils).
+**14 плагинов** в 5 категориях (Recon, Web, Network, TLS, Utils).
 
 ## Ключевые фишки
 
@@ -46,6 +47,7 @@ HunterA 2 — переписанный с нуля мультитул для п�
 - **Кэширование** — повторные `whois`, `dns`, `geoip`, `ssl`, `cloudflair`, `subdomain` мгновенны
 - **Цветные уровни угроз** — `CRITICAL`, `HIGH`, `MEDIUM`, `LOW` в бейджах с фоном
 - **Плагины через entry points** — можно публиковать свои на PyPI
+- **Live-проверка** — `robots check=1` показывает, реально ли закрыт путь
 
 ## Установка
 

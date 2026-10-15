@@ -5,6 +5,7 @@ import random
 import string
 import urllib.request
 from huntera2.sdk import Plugin
+from huntera2.core.config import DEFAULT_DNS_SERVERS
 
 try:
     import dns.resolver
@@ -40,12 +41,7 @@ BUILTIN_WORDLIST = [
 ]
 
 # --- Пул публичных DNS-резолверов ---
-DNS_RESOLVERS = [
-    "8.8.8.8",         # Google
-    "1.1.1.1",         # Cloudflare
-    "9.9.9.9",         # Quad9
-    "208.67.222.222",  # OpenDNS
-]
+DNS_RESOLVERS = DEFAULT_DNS_SERVERS
 
 
 def _random_label(length: int = 12) -> str:

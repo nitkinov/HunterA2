@@ -2,6 +2,7 @@ import tomllib
 from pathlib import Path
 from pydantic import BaseModel
 
+DEFAULT_DNS_SERVERS = ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
 CONFIG_DIR = Path.home() / ".config" / "huntera2"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 

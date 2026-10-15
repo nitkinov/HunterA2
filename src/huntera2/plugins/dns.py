@@ -2,6 +2,7 @@ import json
 import socket
 import time
 from huntera2.sdk import Plugin
+from huntera2.core.config import DEFAULT_DNS_SERVERS
 
 try:
     import dns.resolver
@@ -64,7 +65,7 @@ class DnsLookup(Plugin):
         # --- Резолвер ---
         server = args.get("server")
         # Termux не имеет /etc/resolv.conf, поэтому всегда задаём nameservers явно
-        public_resolvers = ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
+        public_resolvers = DEFAULT_DNS_SERVERS
         resolver = dns.resolver.Resolver(configure=False)
         resolver.nameservers = [server] if server else public_resolvers
         resolver.timeout = 3.0
