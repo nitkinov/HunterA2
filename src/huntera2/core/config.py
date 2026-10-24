@@ -3,6 +3,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 DEFAULT_DNS_SERVERS = ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
+
 CONFIG_DIR = Path.home() / ".config" / "huntera2"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 
@@ -11,11 +12,17 @@ class Config(BaseModel):
     timeout: int = 10
     user_agent: str = "HunterA2/0.1"
     log_level: str = "INFO"
+    proxy: str = ""  # socks5://127.0.0.1:9050 или http://127.0.0.1:8080
+    # Словарь для API-ключей: {"shodan_key": "...", "st": "...", "apikey": "..."}
+    api_keys: dict[str, str] = {}
 
 
 def load_config() -> Config:
     if not CONFIG_FILE.exists():
         return Config()
-    with CONFIG_FILE.open("rb") as f:
-        data = tomllib.load(f)
-    return Config(**data)
+    try:
+        with CONFIG_FILE.open("rb") as f:
+            data = tomllib.load(f)
+        return Config(**data)
+    except Exception:
+        return Config()

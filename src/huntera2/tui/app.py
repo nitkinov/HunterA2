@@ -4,16 +4,18 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import (
     Footer, ListView, ListItem, Label,
-    Input, Button, RichLog, Static,
+    Input, Button, RichLog, Static, ProgressBar,
 )
 from textual.binding import Binding
 from textual.worker import Worker, get_current_worker
+from textual.theme import Theme
 
 from huntera2 import __version__
 from huntera2.tui.constants import CATEGORY_ORDER, CATEGORY_ICONS, MAX_BUFFER_LINES
 from huntera2.tui.utils import parse_args, escape_markup
 from huntera2.tui.widgets.chart import ChartPanel, PLOTEXT_AVAILABLE
 from huntera2.tui.widgets.sidebar import PluginListPanel
+from huntera2.tui.screens.help import HelpScreen
 
 if PLOTEXT_AVAILABLE:
     from textual_plotext import PlotextPlot
@@ -33,6 +35,34 @@ CATEGORY_ICONS = {
 }
 
 
+
+
+CUSTOM_THEMES = {
+    "blood": Theme(
+        name="blood", primary="#8b0000", secondary="#4a0d0d", accent="#e63946",
+        warning="#e6b800", error="#e63946", success="#7fb069",
+        foreground="#d4d4d4", background="#0d0d0d", surface="#161616", panel="#1c1c1c",
+        dark=True
+    ),
+    "matrix": Theme(
+        name="matrix", primary="#006600", secondary="#004400", accent="#00ff41",
+        warning="#ffff00", error="#ff0000", success="#00ff41",
+        foreground="#00ff41", background="#000000", surface="#111111", panel="#1a1a1a",
+        dark=True
+    ),
+    "cyberpunk": Theme(
+        name="cyberpunk", primary="#ff00ff", secondary="#880088", accent="#00ffff",
+        warning="#ffff00", error="#ff0000", success="#00ff00",
+        foreground="#ffffff", background="#0a001a", surface="#1a0033", panel="#2a004a",
+        dark=True
+    ),
+    "mono": Theme(
+        name="mono", primary="#555555", secondary="#333333", accent="#ffffff",
+        warning="#cccccc", error="#ffffff", success="#cccccc",
+        foreground="#ffffff", background="#000000", surface="#111111", panel="#1a1a1a",
+        dark=True
+    )
+}
 
 class HunterApp(App):
     CSS_PATH = "styles.tcss"
@@ -54,6 +84,8 @@ class HunterApp(App):
         Binding("5", "filter('TLS')", "TLS", show=False),
         Binding("6", "filter('Utils')", "Utils", show=False),
         Binding("X", "clear_cache", "Clear cache", show=False),
+        Binding("question_mark", "show_help", "Help", show=True),
+        Binding("t", "cycle_theme", "Theme", show=True),
         Binding("ctrl+p", "command_palette", "Palette", show=False),
     ]
 
@@ -67,6 +99,12 @@ class HunterApp(App):
         self._worker = None
         self._chart = ChartPanel(self.query_one)
         self._sidebar = PluginListPanel(self.query_one, self.plugins, self.plugins_by_name)
+        
+        for t in CUSTOM_THEMES.values():
+            self.register_theme(t)
+        self.theme = "blood"
+        self._theme_names = list(CUSTOM_THEMES.keys())
+        self._theme_idx = 0
 
     # ---------- Status ----------
     def _status(self, text: str, color: str = "#8a8a8a") -> None:
@@ -95,6 +133,7 @@ class HunterApp(App):
                 yield Static("", id="hint")
                 yield Input(placeholder="$ args...", id="args")
                 yield Button("▶  RUN", id="run")
+                yield ProgressBar(id="progress", show_eta=False)
                 yield RichLog(id="output", wrap=True, markup=True, highlight=False)
                 if PLOTEXT_AVAILABLE:
                     yield PlotextPlot(id="chart")
@@ -141,12 +180,13 @@ class HunterApp(App):
             self._chart.hide()
 
     def _apply_highlight(self, selected_idx: int) -> None:
-        """Красит текст выбранного Label в кровавый через styles.color."""
+        """Красит текст выбранного Label в акцентный цвет текущей темы."""
         from textual.widgets import Label
         try:
             lv = self.query_one("#plugin-list", ListView)
         except Exception:
             return
+        accent = self.current_theme.accent
         for i, item in enumerate(lv.children):
             if not item.id or not item.id.startswith("plugin-"):
                 continue
@@ -155,7 +195,7 @@ class HunterApp(App):
             except Exception:
                 continue
             if i == selected_idx:
-                label.styles.color = "#ff2a2a"
+                label.styles.color = accent
                 label.styles.text_style = "bold"
             else:
                 label.styles.color = "#b0b0b0"
@@ -233,6 +273,8 @@ class HunterApp(App):
                     cache.set(plugin.name, args, result, ttl)
 
             self._status("done", "#7fb069")
+            try: self.query_one("#progress", ProgressBar).styles.display = "none"
+            except Exception: pass
 
             if plugin.name == "portscan" and PLOTEXT_AVAILABLE:
                 results = getattr(plugin, "_last_results", None)
@@ -245,11 +287,25 @@ class HunterApp(App):
     def _flush_stream(self, chunk: str) -> None:
         if not chunk:
             return
+
+        # Перехватываем прогресс
+        if chunk.startswith("[PROG]"):
+            try:
+                _, cur, total = chunk.strip().split(":")
+                pb = self.query_one("#progress", ProgressBar)
+                pb.update(total=int(total), progress=int(cur))
+                pb.styles.display = "block"
+            except Exception:
+                pass
+            return
+
         self._stream_buffer += chunk
         if self._stream_buffer.count("\n") > MAX_BUFFER_LINES:
             lines = self._stream_buffer.split("\n")
             self._stream_buffer = "\n".join(lines[-MAX_BUFFER_LINES:])
             self.query_one("#output", RichLog).clear()
+        try: self.query_one("#progress", ProgressBar).styles.display = "none"
+        except Exception: pass
         self.query_one("#output", RichLog).write(chunk)
 
     # ---------- Chart ----------
@@ -274,8 +330,18 @@ class HunterApp(App):
         self._status("no chart data — run portscan", "#e6b800")
 
 
+    def action_cycle_theme(self) -> None:
+        self._theme_idx = (self._theme_idx + 1) % len(self._theme_names)
+        self.theme = self._theme_names[self._theme_idx]
+        self._status(f"theme: {self.theme}", "#7fb069")
+
+    def action_show_help(self) -> None:
+        self.push_screen(HelpScreen())
+
     def action_clear(self) -> None:
         self.query_one("#output", RichLog).clear()
+        try: self.query_one("#progress", ProgressBar).styles.display = "none"
+        except Exception: pass
         self._stream_buffer = ""
         self._status("cleared")
 

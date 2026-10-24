@@ -3,6 +3,7 @@ import concurrent.futures
 import json
 import random
 from huntera2.sdk import Plugin
+from huntera2.core.wordlists import resolve_wordlist
 
 try:
     import httpx
@@ -131,7 +132,7 @@ def _run_scan_in_thread(base, words, extensions, concurrency, delay, timeout):
 class DirBrute(Plugin):
     name = "dir_brute"
     description = "Directory & file brute-force (async, built-in wordlist, extensions, custom list)"
-    usage = "url=http://example.com [wordlist=/path] [ext=php,html,txt] [concurrency=50] [delay=0] [json=1]"
+    usage = "url=http://example.com [wordlist=@common | /path] [ext=php,html] [json=1]"
     icon = "📂"
     category = "Web"
     needs_network = True
@@ -147,10 +148,10 @@ class DirBrute(Plugin):
         base = _normalize_base(url)
 
         # Словарь
-        wordlist_path = args.get("wordlist")
-        if wordlist_path:
+        wordlist_arg = args.get("wordlist")
+        if wordlist_arg:
             try:
-                words = _load_wordlist(wordlist_path)
+                words = resolve_wordlist(wordlist_arg)
             except Exception as e:
                 return f"[#e63946]Wordlist error:[/#e63946] {e}"
         else:

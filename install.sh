@@ -148,6 +148,7 @@ CORE_PKGS=(
     "beautifulsoup4>=4.12"
     "cryptography>=42.0"
     "lxml>=5.0"
+    "pysocks>=1.7"
 )
 # Full-режим: + mmh3 для favicon-hash в cloudflair
 FULL_PKGS=(
@@ -212,6 +213,12 @@ if [ ! -f "$HOME/.config/huntera2/config.toml" ]; then
 timeout = 10
 user_agent = "HunterA2/0.1"
 log_level = "INFO"
+
+# API-ключи для плагинов (раскомментируй и вставь свои)
+[api_keys]
+# shodan_key = "твой_ключ_shodan"
+# st = "твой_ключ_securitytrails"
+# apikey = "твой_ключ_viewdns"
 CFG
     echo -e "  ${GREEN}✓${NC} создан config.toml"
 fi

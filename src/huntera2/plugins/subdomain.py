@@ -5,6 +5,7 @@ import random
 import string
 import urllib.request
 from huntera2.sdk import Plugin
+from huntera2.core.wordlists import resolve_wordlist
 from huntera2.core.config import DEFAULT_DNS_SERVERS
 
 try:
@@ -186,7 +187,7 @@ def _run_scan_in_thread(domain, words, concurrency, timeout, use_passive):
 class SubdomainEnum(Plugin):
     name = "subdomain"
     description = "Subdomain enumeration: DNS brute-force + crt.sh, wildcard detection, CNAME"
-    usage = "domain=example.com [wordlist=/path] [concurrency=100] [timeout=3.0] [passive=0] [json=1]"
+    usage = "domain=example.com [wordlist=@subdomains | /path] [concurrency=100] [json=1]"
     icon = "🔎"
     cache_ttl = 3600
     category = "Recon"
@@ -203,11 +204,10 @@ class SubdomainEnum(Plugin):
         domain = domain.replace("https://", "").replace("http://", "").split("/")[0].split("?")[0]
 
         # --- Словарь ---
-        wordlist_path = args.get("wordlist")
-        if wordlist_path:
+        wordlist_arg = args.get("wordlist")
+        if wordlist_arg:
             try:
-                with open(wordlist_path, "r", encoding="utf-8", errors="ignore") as f:
-                    words = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+                words = resolve_wordlist(wordlist_arg)
             except Exception as e:
                 return f"[#e63946]Wordlist error:[/#e63946] {e}"
         else:

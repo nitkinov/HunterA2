@@ -166,8 +166,16 @@ async def _scan_stream(host: str, ports: list[int], concurrency: int, timeout: f
             return await _scan_port(host, p, timeout, grab, delay)
 
     tasks = [asyncio.create_task(_bounded(p)) for p in ports]
+    total = len(tasks)
+    checked = 0
+    
     for coro in asyncio.as_completed(tasks):
         res = await coro
+        checked += 1
+        
+        if emit and (checked % 10 == 0 or checked == total):
+            emit(f"[PROG]:{checked}:{total}\n")
+            
         if res:
             results.append(res)
             if emit:
